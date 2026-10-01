@@ -1,0 +1,30 @@
+services:
+  recorder:
+    build:
+      context: .
+      target: app
+    container_name: audio-recorder
+    restart: unless-stopped
+    init: true                # forwards "docker stop" to the app, so it can finish the file
+    stop_grace_period: 15s
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Values from your shell or .env, e.g.: AUDIO_DEVICE=test docker compose up -d
+      AUDIO_DEVICE: ${AUDIO_DEVICE:-auto}
+      PORT: ${PORT:-8080}
+      TZ: ${TZ:-Europe/Prague}   # local time in file names
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    # Sound cards: mount /dev/snd as a folder and allow all ALSA devices
+    # (major 116). Unlike "devices:", this also works when you plug the USB
+    # card in after the container has started.
+    device_cgroup_rules:
+      - "c 116:* rmw"
+    group_add:
+      - audio
+    volumes:
+      - /dev/snd:/dev/snd
+      - ./recordings:/recordings   # Navidrome can read the same folder
+      - ./data:/data               # settings (selected device, monitor on/off)

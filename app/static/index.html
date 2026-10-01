@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111317">
+  <title>Audio Recorder</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>🎸 Recorder</h1>
+    <span id="disk" class="muted">– free</span>
+  </header>
+
+  <main>
+    <div id="banner" class="banner hidden" role="alert"></div>
+
+    <!-- Input device + headphone monitor -->
+    <section class="card">
+      <label class="field">
+        <span>Input</span>
+        <select id="device"></select>
+      </label>
+      <div class="row monitor-row">
+        <label class="switch">
+          <input type="checkbox" id="monitor">
+          <span class="slider"></span>
+          <span>🎧 Headphone monitor</span>
+        </label>
+        <span id="monitor-info" class="muted small"></span>
+      </div>
+      <p class="muted small">Tip: the card's own direct monitor has no delay. Do not use it together with this switch (echo).</p>
+      <div id="warnings" class="small warn"></div>
+    </section>
+
+    <!-- Level meter -->
+    <section class="card">
+      <div class="meter-head">
+        <span>Input level <span class="muted small">(dBFS)</span></span>
+        <span id="clip" class="clip">CLIP</span>
+      </div>
+      <div id="meters"></div>
+      <div class="scale small muted"><span>-60</span><span>-40</span><span>-20</span><span>-12</span><span>-6</span><span>0</span></div>
+    </section>
+
+    <!-- Record -->
+    <section class="card record-card">
+      <input id="tag" type="text" maxlength="60" placeholder="Name / tag (optional), e.g. bass-riff"
+             autocomplete="off" autocapitalize="off" enterkeyhint="done">
+      <button id="rec" class="rec-btn" aria-label="Record"><span class="dot"></span><span id="rec-label">REC</span></button>
+      <div id="timer" class="timer">00:00</div>
+      <div id="rec-file" class="muted small center"></div>
+      <button id="marker" class="btn hidden">📍 Marker</button>
+      <div id="markers" class="small muted center"></div>
+    </section>
+
+    <!-- Recordings -->
+    <section>
+      <div class="list-head">
+        <h2>Recordings</h2>
+        <button id="refresh" class="btn small-btn" aria-label="Refresh">↻</button>
+      </div>
+      <div id="list"></div>
+      <p id="empty" class="muted center hidden">No recordings yet.</p>
+    </section>
+  </main>
+
+  <!-- One shared player for all recordings -->
+  <footer id="player" class="player hidden">
+    <div class="player-head">
+      <span id="player-name" class="small"></span>
+      <button id="player-close" class="btn small-btn" aria-label="Close player">✕</button>
+    </div>
+    <div id="waveform"></div>
+    <audio id="audio" controls preload="metadata"></audio>
+  </footer>
+
+  <dialog id="confirm">
+    <form method="dialog">
+      <p id="confirm-text"></p>
+      <div class="row end">
+        <button value="cancel" class="btn">Cancel</button>
+        <button value="ok" class="btn danger">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
