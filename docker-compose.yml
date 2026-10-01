@@ -1,7 +1,7 @@
 services:
   recorder:
-    # Image from GitHub Actions (.github/workflows/deploy.yml).
-    # Pin a version for stable updates, e.g. ghcr.io/pvlkrc/audio-recorder:1.0.0
+    # Built by GitHub Actions (.github/workflows/deploy.yml).
+    # Set IMAGE_TAG in .env to stay on one version, e.g. 1.0.0
     image: ghcr.io/pvlkrc/audio-recorder:${IMAGE_TAG:-latest}
     container_name: audio-recorder
     restart: unless-stopped
@@ -11,20 +11,31 @@ services:
       - path: .env
         required: false
     environment:
-      # Values from your shell or .env, e.g.: AUDIO_DEVICE=test docker compose up -d
-      AUDIO_DEVICE: ${AUDIO_DEVICE:-auto}
-      PORT: ${PORT:-8080}
-      TZ: ${TZ:-Europe/Prague}   # local time in file names
+      AUDIO_DEVICE: ${AUDIO_DEVICE:-auto}   # e.g. AUDIO_DEVICE=test docker compose up -d
+      TZ: ${TZ:-Europe/Prague}              # local time in file names
     ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+      - "${HOST_PORT:-8080}:8080"           # web page in your LAN (no login!)
     # Sound cards: mount /dev/snd as a folder and allow all ALSA devices
-    # (major 116). Unlike "devices:", this also works when you plug the USB
-    # card in after the container has started.
+    # (major 116). This also works when you plug the USB card in later.
     device_cgroup_rules:
       - "c 116:* rmw"
     group_add:
       - audio
     volumes:
       - /dev/snd:/dev/snd
-      - ./recordings:/recordings   # Navidrome can read the same folder
+      - ./recordings:/recordings   # your recordings (Navidrome can read this folder)
       - ./data:/data               # settings (selected device, monitor on/off)
+
+  # Cloudflare tunnel: HTTPS from the internet without opening ports.
+  # Turned on by COMPOSE_PROFILES=tunnel and TUNNEL_TOKEN in .env.
+  # In Cloudflare, point the public hostname to: http://audio-recorder:8080
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: audio-recorder-tunnel
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - recorder
