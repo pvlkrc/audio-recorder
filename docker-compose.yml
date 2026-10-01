@@ -1,8 +1,8 @@
 services:
   recorder:
-    build:
-      context: .
-      target: app
+    # Image from GitHub Actions (.github/workflows/deploy.yml).
+    # Pin a version for stable updates, e.g. ghcr.io/pvlkrc/audio-recorder:1.0.0
+    image: ghcr.io/pvlkrc/audio-recorder:${IMAGE_TAG:-latest}
     container_name: audio-recorder
     restart: unless-stopped
     init: true                # forwards "docker stop" to the app, so it can finish the file

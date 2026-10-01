@@ -86,14 +86,33 @@ If the test recording is silent, check the gain knob and the input switch (instr
 
 ## 3. Start
 
+The image is built by GitHub Actions ([.github/workflows/deploy.yml](.github/workflows/deploy.yml))
+and pushed to `ghcr.io/pvlkrc/audio-recorder` on every push to `main` (`:latest`)
+and for every tag `v*` (e.g. `v1.0.0` -> `:1.0.0`).
+
+On the server you only need `docker-compose.yml` and `.env`:
+
 ```bash
+git clone git@github.com:pvlkrc/audio-recorder.git && cd audio-recorder
 cp .env.example .env      # optional, change what you need
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 Open `http://<server-ip>:8080` on your phone.
 
-Quick try without a sound card: `AUDIO_DEVICE=test docker compose up -d --build`.
+Quick try without a sound card: `AUDIO_DEVICE=test docker compose up -d`.
+
+**Update** to the newest image: `docker compose pull && docker compose up -d`.
+To stay on one version, set `IMAGE_TAG=1.0.0` in `.env`.
+
+**Private package:** a new package on ghcr.io is private. Either make it public
+(GitHub -> your profile -> Packages -> audio-recorder -> Package settings -> Change visibility),
+or log in on the server once with a token that has `read:packages`:
+`echo <TOKEN> | docker login ghcr.io -u pvlkrc --password-stdin`.
+
+**Build locally** in place of pulling:
+`docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
 Recordings are saved in `./recordings` (you can point Navidrome at this folder).
 The container starts as root only to give `./recordings` and `./data` to the app user
