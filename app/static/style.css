@@ -180,3 +180,12 @@ dialog {
   border: 1px solid var(--line); border-radius: 14px; max-width: 90vw;
 }
 dialog::backdrop { background: rgba(0, 0, 0, .6); }
+
+/* ---- share dialog ---- */
+.btn.primary { background: var(--accent); }
+.share-form { min-width: min(320px, 80vw); }
+.share-title { font-weight: 600; margin-top: 0; }
+.share-choices { display: flex; flex-direction: column; gap: 10px; }
+.share-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 12px 14px; }
+.share-choice:disabled { opacity: .5; }
+

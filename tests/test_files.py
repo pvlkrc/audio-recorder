@@ -67,3 +67,10 @@ def test_fix_wav_header(tmp_path):
     with wave.open(str(p)) as w:
         assert w.getnframes() == 4800
     assert struct.unpack("<I", p.read_bytes()[4:8])[0] == p.stat().st_size - 8
+
+
+def test_share_title_lines():
+    from app.share import title_lines
+    assert title_lines("2026-10-01_20-40-05_bass-riff.flac", 192.4) == ("bass-riff", "2026-10-01 20:40 · 3:12")
+    assert title_lines("2026-10-01_20-40-05.flac", 3725) == ("Recording", "2026-10-01 20:40 · 1:02:05")
+    assert title_lines("my-song.wav", None) == ("my-song", "")

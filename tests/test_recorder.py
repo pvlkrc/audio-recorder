@@ -98,3 +98,30 @@ def test_recover_killed_flac(settings):
     assert recover_parts(settings.recordings_dir) == ["2026-10-01_20-40-05_crash.flac"]
     info = probe(settings.recordings_dir / "2026-10-01_20-40-05_crash.flac")
     assert float(info["format"]["duration"]) > 1
+
+
+@needs_ffmpeg
+def test_share_mp3_and_video(client, settings):
+    client.post("/api/record/start", json={"name": "share me"})
+    time.sleep(2)
+    name = client.post("/api/record/stop").json()["last_file"]
+
+    r = client.get(f"/api/recordings/{name}/share/mp3")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "audio/mpeg"
+    assert name.replace(".flac", ".mp3") in r.headers["content-disposition"]
+
+    r = client.get(f"/api/recordings/{name}/share/mp4")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "video/mp4"
+    video = settings.data_dir / "share" / f"{name}.mp4"
+    info = probe(video)
+    codecs = sorted(s["codec_name"] for s in info["streams"])
+    assert codecs == ["aac", "h264"]
+    assert float(info["format"]["duration"]) > 1.5
+
+    # Share files are not in the recordings list, and go away with the recording.
+    assert [i["name"] for i in client.get("/api/recordings").json()] == [name]
+    client.delete(f"/api/recordings/{name}")
+    assert not video.exists()
+    assert client.get(f"/api/recordings/{name}/share/xyz").status_code == 404

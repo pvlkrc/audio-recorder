@@ -28,8 +28,6 @@ class Settings:
     data_dir: Path
     max_duration_min: float
     min_free_disk_mb: float
-    auth_user: str
-    auth_pass: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -49,8 +47,6 @@ class Settings:
             data_dir=Path(env("DATA_DIR", "/data")).resolve(),
             max_duration_min=float(env("MAX_DURATION_MIN", "120")),
             min_free_disk_mb=float(env("MIN_FREE_DISK_MB", "1000")),
-            auth_user=env("AUTH_USER", ""),
-            auth_pass=env("AUTH_PASS", ""),
         )
         if s.format not in ("flac", "wav"):
             raise ValueError("FORMAT must be 'flac' or 'wav'")

@@ -1,5 +1,3 @@
-import base64
-
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -85,13 +83,3 @@ def test_devices(client):
 def test_monitor_unavailable_with_test_device(client):
     assert client.get("/api/monitor").json()["available"] is False
     assert client.put("/api/monitor", json={"enabled": True}).status_code == 409
-
-
-def test_basic_auth(settings):
-    settings.auth_user, settings.auth_pass = "me", "secret"
-    with TestClient(create_app(settings)) as c:
-        assert c.get("/api/status").status_code == 401
-        token = base64.b64encode(b"me:secret").decode()
-        assert c.get("/api/status", headers={"Authorization": f"Basic {token}"}).status_code == 200
-        bad = base64.b64encode(b"me:wrong").decode()
-        assert c.get("/api/status", headers={"Authorization": f"Basic {bad}"}).status_code == 401

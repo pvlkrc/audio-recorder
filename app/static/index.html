@@ -86,6 +86,22 @@
     </form>
   </dialog>
 
+  <!-- Share: make the file, then open the phone's share menu (Messenger, Instagram, ...) -->
+  <dialog id="share">
+    <form method="dialog" class="share-form">
+      <p class="share-title">Share <span id="share-name" class="muted small"></span></p>
+      <div id="share-choose" class="share-choices">
+        <button type="button" class="btn share-choice" data-fmt="mp3">🎵 Audio (MP3)<span class="muted small">Messenger, WhatsApp, e-mail…</span></button>
+        <button type="button" class="btn share-choice" data-fmt="mp4">🎬 Video (MP4)<span class="muted small">Instagram, Messenger, WhatsApp…</span></button>
+      </div>
+      <p id="share-status" class="small"></p>
+      <div class="row end">
+        <button value="cancel" class="btn">Close</button>
+        <button type="button" id="share-go" class="btn primary hidden">Share</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="app.js"></script>
 </body>
 </html>

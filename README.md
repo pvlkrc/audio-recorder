@@ -10,7 +10,8 @@ headless Linux server. You control it from the browser on your phone.
 - FLAC (default) or WAV; file names like `2026-10-01_20-40-05_bass-riff.flac`
 - Device dropdown (from `arecord -l`); the choice is saved
 - Safety: maximum length, auto stop when the disk is almost full, crash-safe files
-- Extras: markers during recording, "Make MP3", waveform view, optional login
+- Extras: markers during recording, "Make MP3", waveform view
+- **Share** to Messenger, Instagram, WhatsApp… with the phone's share menu (MP3 or MP4 video)
 
 Defaults fit the **Fifine SC1** (48 kHz, 16-bit, 2 channels). Everything can be changed in `.env`.
 
@@ -137,7 +138,24 @@ like playing into an amp. Use the software monitor only if the card has no direc
 The software monitor uses `alsaloop`. It sends the input to the playback device of the
 same card (`PLAYBACK_DEVICE=auto`). Lower `MONITOR_LATENCY_US` = less delay, but more risk of crackling.
 
-## 5. Settings (`.env`)
+## 5. Share to Messenger / Instagram
+
+Each recording has a **📤 Share** button:
+
+| Choice | What you get | Good for |
+|---|---|---|
+| 🎵 Audio (MP3) | the recording as MP3 | Messenger, WhatsApp, e-mail, ... |
+| 🎬 Video (MP4) | a still picture (waveform, name, date) with the sound | **Instagram** (its messages do not take audio files), Messenger, WhatsApp |
+
+1. Tap a choice. The server makes the file (a long video takes a moment).
+2. Tap **Share**. The phone's share menu opens; choose Instagram / Messenger and the person.
+
+These files are kept for one day in `./data/share` (not in `./recordings`, so Navidrome does not see them).
+
+**The share menu needs HTTPS.** Browsers open it only on `https://` pages (or `localhost`).
+On `http://<ip>:8080` the file is downloaded instead, and you share it from the Files app.
+
+## 6. Settings (`.env`)
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -156,13 +174,12 @@ same card (`PLAYBACK_DEVICE=auto`). Lower `MONITOR_LATENCY_US` = less delay, but
 | `TZ` | `Europe/Prague` | time zone for file names |
 | `PUID` / `PGID` | `1000` | owner of the recording files on the host (check with `id`) |
 | `PORT` | `8080` | web port |
-| `AUTH_USER` / `AUTH_PASS` | empty | set both to turn on a login (HTTP Basic Auth) |
 
 The app writes its own small ALSA config (`./data/alsa-home/.asoundrc`) with a shared input
 called `rec_in` (ALSA `dsnoop`). Because of this, the level meter, the recording and the
 headphone monitor can all use the card at the same time.
 
-## 6. Crash safety
+## 7. Crash safety
 
 - A running recording is written to a hidden file `.<name>.flac.part`. Navidrome does not see it.
 - **Stop** sends `q` to ffmpeg (then SIGINT, and only at the end SIGKILL), so the file is closed properly.
@@ -171,7 +188,7 @@ headphone monitor can all use the card at the same time.
 - If everything is killed hard (power loss, `docker kill`), the next start **repairs** the `.part` file
   (WAV: fixes the header; FLAC: writes the file again so the length is correct) and gives it its normal name.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 **"The audio device is busy"**
 - Another program uses the card. Check with `fuser -v /dev/snd/*` (in the VM / LXC and, for LXC, on the host).
@@ -199,7 +216,7 @@ headphone monitor can all use the card at the same time.
 
 **Time in file names is wrong** — set `TZ` in `.env`.
 
-## 8. API
+## 9. API
 
 | Method | Path | |
 |---|---|---|
@@ -213,13 +230,15 @@ headphone monitor can all use the card at the same time.
 | PATCH | `/api/recordings/{file}` | rename, body `{"name": "new-tag"}` (the date stays) |
 | DELETE | `/api/recordings/{file}` | delete |
 | POST | `/api/recordings/{file}/mp3` | make an MP3 copy |
+| GET | `/api/recordings/{file}/share/mp3` | MP3 for sharing |
+| GET | `/api/recordings/{file}/share/mp4` | video (still picture + sound) for sharing |
 | GET | `/api/recordings/{file}/markers` | markers of a recording |
 | GET | `/api/devices` | capture devices + selected |
 | PUT | `/api/devices/selected` | body `{"device": "hw:CARD=SC1,DEV=0"}` |
 | GET / PUT | `/api/monitor` | body `{"enabled": true}` |
 | WS | `/ws/level` | `{"peak_db": [-12.3, -14.0], "clip": false, "active": true}` |
 
-## 9. Development and tests (no sound card needed)
+## 10. Development and tests (no sound card needed)
 
 `AUDIO_DEVICE=test` uses an ffmpeg test tone in place of a sound card.
 

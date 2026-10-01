@@ -260,6 +260,7 @@ async function loadRecordings() {
         <button class="btn" data-act="delete" aria-label="Delete">🗑</button>
       </div>
       <div class="item-extra">
+        <button class="btn" data-act="share">📤 Share</button>
         ${r.name.endsWith(".mp3") ? "" : '<button class="btn" data-act="mp3">Make MP3</button>'}
         ${r.size <= WAVEFORM_MAX_MB * 1024 * 1024 ? '<button class="btn" data-act="wave">Waveform</button>' : ""}
         <span class="markers-slot"></span>
@@ -293,6 +294,8 @@ ui.list.addEventListener("click", async (ev) => {
       if (playing === name) closePlayer();
       await api("DELETE", `/api/recordings/${enc(name)}`);
       loadRecordings();
+    } else if (act === "share") {
+      openShare(name);
     } else if (act === "mp3") {
       btn.disabled = true;
       btn.textContent = "Converting…";
@@ -366,6 +369,93 @@ function confirmDialog(text) {
     ui.confirm.returnValue = "";
     ui.confirm.showModal();
   });
+}
+
+// ---------- share (Messenger, Instagram, WhatsApp, ...) ----------
+//
+// Browsers open the share menu only right after a tap. Making the file can
+// take a while, so it is two taps: 1) choose MP3 / MP4 (the file is made and
+// downloaded), 2) "Share" opens the phone's share menu with the ready file.
+
+const shareUi = {
+  dlg: $("share"), name: $("share-name"), choose: $("share-choose"),
+  status: $("share-status"), go: $("share-go"),
+};
+let shareFile = null;
+let shareFor = null;
+
+function canShareFiles() {
+  try {
+    return !!navigator.canShare && navigator.canShare({ files: [new File(["x"], "x.mp3", { type: "audio/mpeg" })] });
+  } catch { return false; }
+}
+
+function openShare(name) {
+  shareFor = name;
+  shareFile = null;
+  shareUi.name.textContent = name;
+  shareUi.status.textContent = canShareFiles() ? "" :
+    "This browser cannot open the share menu here (it works only on HTTPS pages). The file will be downloaded; share it from your Files app.";
+  shareUi.go.classList.add("hidden");
+  shareUi.choose.querySelectorAll("button").forEach((b) => (b.disabled = false));
+  shareUi.dlg.showModal();
+}
+
+shareUi.choose.addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-fmt]");
+  if (!btn) return;
+  const fmt = btn.dataset.fmt;
+  const name = shareFor;
+  shareUi.choose.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  shareUi.go.classList.add("hidden");
+  shareUi.status.textContent = fmt === "mp4" ? "Making the video… (long recordings take a while)" : "Making the MP3…";
+  try {
+    const res = await fetch(`/api/recordings/${enc(name)}/share/${fmt}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || `Error ${res.status}`);
+    }
+    const blob = await res.blob();
+    if (shareFor !== name) return; // dialog was closed / reopened meanwhile
+    const fileName = name.replace(/\.[^.]+$/, "") + "." + fmt;
+    const file = new File([blob], fileName, { type: fmt === "mp4" ? "video/mp4" : "audio/mpeg" });
+    const mb = (blob.size / 1024 / 1024).toFixed(1);
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      shareFile = file;
+      shareUi.status.textContent = `Ready: ${fileName} (${mb} MB). Tap "Share" and choose the app.`;
+      shareUi.go.classList.remove("hidden");
+    } else {
+      downloadBlob(blob, fileName);
+      shareUi.status.textContent = `Downloaded: ${fileName} (${mb} MB). Share it from your Files / Downloads app.`;
+    }
+  } catch (e) {
+    shareUi.status.textContent = "Error: " + e.message;
+  } finally {
+    shareUi.choose.querySelectorAll("button").forEach((b) => (b.disabled = false));
+  }
+});
+
+shareUi.go.addEventListener("click", async () => {
+  if (!shareFile) return;
+  try {
+    await navigator.share({ files: [shareFile], title: shareFile.name });
+    shareUi.dlg.close();
+  } catch (e) {
+    if (e.name !== "AbortError") shareUi.status.textContent = "Share failed: " + e.message;
+  }
+});
+
+shareUi.dlg.addEventListener("close", () => { shareFile = null; shareFor = null; });
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 ui.refresh.addEventListener("click", () => { loadRecordings(); loadStatus(); });

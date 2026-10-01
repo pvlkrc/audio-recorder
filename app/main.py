@@ -1,9 +1,7 @@
 """FastAPI app: REST API, level WebSocket, static web page."""
 
 import asyncio
-import base64
 import logging
-import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,6 +19,7 @@ from .files import (
 from .level_meter import LevelMeter
 from .monitor import Monitor
 from .recorder import Recorder, RecorderError, recover_parts
+from .share import FORMATS as SHARE_FORMATS, ShareCache, ShareError, encode_mp3
 
 log = logging.getLogger("audio_recorder")
 STATIC_DIR = Path(__file__).parent / "static"
@@ -93,16 +92,6 @@ class Engine:
         return out
 
 
-def basic_auth_ok(header: str | None, user: str, password: str) -> bool:
-    if not header or not header.lower().startswith("basic "):
-        return False
-    try:
-        u, _, p = base64.b64decode(header[6:]).decode().partition(":")
-    except Exception:
-        return False
-    return secrets.compare_digest(u, user) and secrets.compare_digest(p, password)
-
-
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     engine = Engine(settings)
@@ -129,14 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Audio Recorder", lifespan=lifespan)
     app.state.engine = engine
     rec_dir = settings.recordings_dir
-
-    # ---- optional HTTP Basic Auth ------------------------------------------
-    if settings.auth_user and settings.auth_pass:
-        @app.middleware("http")
-        async def auth(request: Request, call_next):
-            if not basic_auth_ok(request.headers.get("authorization"), settings.auth_user, settings.auth_pass):
-                return Response("Login required", 401, {"WWW-Authenticate": 'Basic realm="Audio Recorder"'})
-            return await call_next(request)
+    share = ShareCache(settings.data_dir / "share")
 
     @app.exception_handler(RecorderError)
     async def recorder_error(_: Request, exc: RecorderError):
@@ -205,7 +187,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def recording_rename(name: str, body: RenameBody):
         file_or_404(name)
         try:
-            return {"name": rename_recording(rec_dir, name, body.name)}
+            new_name = rename_recording(rec_dir, name, body.name)
+            share.forget(name)
+            return {"name": new_name}
         except InvalidName as e:
             raise HTTPException(400, str(e))
         except FileExistsError:
@@ -215,6 +199,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def recording_delete(name: str):
         file_or_404(name)
         delete_recording(rec_dir, name)
+        share.forget(name)
         return {"deleted": name}
 
     @app.post("/api/recordings/{name}/mp3")
@@ -226,18 +211,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dst = src.with_suffix(".mp3")
         if dst.exists():
             raise HTTPException(409, f"{dst.name} already exists")
-        tmp = rec_dir / f".{dst.name}.tmp"
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-            "-i", str(src), "-c:a", "libmp3lame", "-q:a", "2", "-f", "mp3", str(tmp),
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, err = await proc.communicate()
-        if proc.returncode != 0:
-            tmp.unlink(missing_ok=True)
-            raise HTTPException(500, "MP3 export failed: " + err.decode(errors="replace")[-300:])
-        tmp.rename(dst)
+        try:
+            await encode_mp3(src, dst)
+        except ShareError as e:
+            raise HTTPException(500, f"MP3 export failed: {e}")
         return {"name": dst.name}
+
+    @app.get("/api/recordings/{name}/share/{fmt}")
+    async def recording_share(name: str, fmt: str):
+        """File for the phone's share menu: "mp3" (Messenger, WhatsApp) or "mp4" (Instagram)."""
+        src = file_or_404(name)
+        if fmt not in SHARE_FORMATS:
+            raise HTTPException(400, "format must be mp3 or mp4")
+        try:
+            path = await share.get(src, fmt)
+        except ShareError as e:
+            raise HTTPException(500, f"Could not make the {fmt.upper()} file: {e}")
+        return FileResponse(path, media_type=SHARE_FORMATS[fmt], filename=f"{src.stem}.{fmt}")
 
     @app.get("/api/recordings/{name}/markers")
     async def recording_markers(name: str):
